@@ -1,0 +1,30 @@
+DISCLAIMER: This is a draft notice produced by software and is not legal advice. Consult a qualified attorney in your jurisdiction before relying on it. Sending this without review may not protect your interests.
+
+Subject: Notice of breach and pre-litigation demand — account {{#if account_number}}{{account_number}}{{else}}[ACCOUNT NUMBER]{{/if}}
+
+To: {{isp_name}}, Legal/Compliance department
+From: {{customer_name}}
+Date: {{today}}
+
+You are hereby placed on notice that you are in apparent breach of the service agreement covering my account.
+
+1. Plan and pricing. I subscribe to your {{plan_name}} plan, advertised at {{fmt2 advertised_down}} Mbps download and {{fmt2 advertised_up}} Mbps upload{{#if monthly_cost}}, for which I pay {{currency}} {{fmt2 monthly_cost}} per month{{/if}}.
+
+2. Evidence. Continuous device-side measurements collected over {{report.window_days}} days (full log available on request) show repeated, quantified shortfall against advertised performance. Findings include:
+
+{{#each report.findings}}{{#if hit}}- {{title}}: {{detail}}
+{{/if}}{{/each}}
+
+3. Localization. Latency to my own gateway remained low throughout the measurement window, demonstrating that the deficiency is not attributable to my premises wiring or local network.
+
+4. Remedies sought. I demand, within fourteen (14) calendar days of receipt of this notice:
+   a. A service credit{{#if requested_credit}} of {{currency}} {{fmt2 requested_credit}}{{/if}}, calculated in proportion to the measured shortfall and the duration of the impacted period;
+   b. A written engineering response identifying root cause and a remediation plan;
+   c. Confirmation, supported by your own field measurements, that service has been restored to its advertised performance.
+
+5. Reservation of rights. Should you fail to respond substantively within the period specified, I expressly reserve the right to (i) file complaints with the appropriate regulatory authorities including the Federal Communications Commission, (ii) pursue claims in small-claims court or the appropriate forum for breach of contract and any applicable consumer-protection statutes, and (iii) opt out of any arbitration provisions to the extent permitted, in accordance with the terms of my agreement.
+
+Nothing in this notice shall be construed as a waiver of any rights or remedies.
+
+Signed,
+{{customer_name}}

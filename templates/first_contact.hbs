@@ -1,0 +1,23 @@
+Subject: Service quality concern — account {{#if account_number}}{{account_number}}{{else}}[ACCOUNT NUMBER]{{/if}}
+
+Hello,
+
+I'm writing about ongoing performance problems with my {{isp_name}} service on the {{plan_name}} plan ({{fmt2 advertised_down}} Mbps down / {{fmt2 advertised_up}} Mbps up advertised).
+
+For the past {{report.window_days}} days, my connection has consistently underdelivered:
+
+{{#with report.summary}}
+- Median measured download: {{#if median_down_mbps}}{{fmt2 median_down_mbps}} Mbps{{else}}n/a{{/if}}
+- Median measured upload: {{#if median_up_mbps}}{{fmt2 median_up_mbps}} Mbps{{else}}n/a{{/if}}
+- Outages logged: {{outage_count}} ({{outage_total_secs}} seconds total)
+- Median internet latency: {{#if median_internet_rtt_ms}}{{fmt2 median_internet_rtt_ms}} ms{{else}}n/a{{/if}}
+- Median latency to my own router: {{#if median_gateway_rtt_ms}}{{fmt2 median_gateway_rtt_ms}} ms{{else}}n/a{{/if}}
+{{/with}}
+
+These measurements were collected on the device side using ISP Watchdog, with timestamps and target servers logged. Gateway latency stays low while internet latency degrades, which indicates the issue is upstream of my home network.
+
+Please review my account and let me know what you can do to resolve this. I'm happy to share the full measurement log on request.
+
+Thanks,
+{{customer_name}}
+{{today}}

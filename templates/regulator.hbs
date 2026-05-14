@@ -1,0 +1,38 @@
+FCC Consumer Complaint — Internet Service
+
+Submit at: https://consumercomplaints.fcc.gov/
+
+--- Suggested form contents ---
+
+Provider: {{isp_name}}
+Account number: {{#if account_number}}{{account_number}}{{else}}[ACCOUNT NUMBER]{{/if}}
+Type of issue: Internet — Speed / Availability
+
+Description:
+
+I subscribe to {{isp_name}}'s {{plan_name}} plan, advertised at {{fmt2 advertised_down}} Mbps down / {{fmt2 advertised_up}} Mbps up{{#if monthly_cost}} for {{currency}} {{fmt2 monthly_cost}}/month{{/if}}. Over the last {{report.window_days}} days I have collected continuous device-side measurements (using the open-source ISP Watchdog tool) that show the following pattern:
+
+{{#with report.summary}}
+- Median measured download: {{#if median_down_mbps}}{{fmt2 median_down_mbps}} Mbps{{else}}n/a{{/if}} (advertised: {{fmt2 ../advertised_down}} Mbps)
+- Outages logged: {{outage_count}} totaling {{outage_total_secs}} seconds
+- Median internet latency: {{#if median_internet_rtt_ms}}{{fmt2 median_internet_rtt_ms}} ms{{else}}n/a{{/if}}
+- Median latency to my own gateway: {{#if median_gateway_rtt_ms}}{{fmt2 median_gateway_rtt_ms}} ms{{else}}n/a{{/if}} (low value confirms the issue is not on my LAN)
+- Mean packet loss: {{#if mean_internet_loss_pct}}{{pct mean_internet_loss_pct}}{{else}}n/a{{/if}}
+{{/with}}
+
+Findings the data triggered:
+
+{{#each report.findings}}{{#if hit}}- {{title}}: {{detail}}
+{{/if}}{{/each}}
+
+{{#if equipment}}Equipment in use:
+{{#each equipment}}- {{role}}{{#if vendor}}: {{vendor}}{{/if}}{{#if model}} {{model}}{{/if}}{{#if docsis_version}}, DOCSIS {{docsis_version}}{{/if}}{{#if max_down_mbps}}, rated up to {{fmt2 max_down_mbps}} Mbps{{/if}}{{#if ownership}} ({{ownership}}){{/if}}
+{{/each}}
+{{/if}}
+I have already raised this with {{isp_name}}'s customer support and have not received a substantive resolution. Please direct {{isp_name}} to provide a service credit and remediation plan.
+
+I am happy to provide the full CSV measurement log on request.
+
+Signed,
+{{customer_name}}
+{{today}}

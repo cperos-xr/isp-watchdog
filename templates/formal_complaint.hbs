@@ -1,0 +1,27 @@
+Subject: Formal complaint and request for service credit — account {{#if account_number}}{{account_number}}{{else}}[ACCOUNT NUMBER]{{/if}}
+
+To whom it may concern at {{isp_name}},
+
+This message constitutes a formal complaint regarding chronic underdelivery of my service against the terms of my agreement on the {{plan_name}} plan ({{fmt2 advertised_down}} Mbps down / {{fmt2 advertised_up}} Mbps up advertised, billed at {{#if monthly_cost}}{{currency}} {{fmt2 monthly_cost}}/month{{else}}the agreed monthly rate{{/if}}).
+
+Findings from the last {{report.window_days}} days of continuous measurement on my premises:
+
+{{#each report.findings}}{{#if hit}}- {{title}}: {{detail}}
+{{/if}}{{/each}}
+
+These measurements were collected automatically using ISP Watchdog. Gateway latency to my own router was consistently low, ruling out any in-home networking issue and isolating the problem to the ISP side of the demarcation.
+
+{{#if equipment}}For the record, my equipment is rated above the plan I am paying for, eliminating any "your hardware can't handle that speed" explanation:
+{{#each equipment}}- {{role}}{{#if vendor}}: {{vendor}}{{/if}}{{#if model}} {{model}}{{/if}}{{#if firmware}} (firmware {{firmware}}){{/if}}{{#if docsis_version}}, DOCSIS {{docsis_version}}{{/if}}{{#if max_down_mbps}}, vendor-rated up to {{fmt2 max_down_mbps}} Mbps down{{/if}}{{#if ownership}} — {{ownership}}{{/if}}.
+{{/each}}{{/if}}
+
+I am requesting:
+1. A service credit{{#if requested_credit}} of approximately {{currency}} {{fmt2 requested_credit}}{{/if}}, calculated proportionally to the measured shortfall.
+2. A written engineering response describing the root cause and the remediation plan.
+3. Confirmation that the issue is resolved, supported by either field measurements or capacity reports.
+
+If I do not receive a substantive response within 14 days, I will escalate this complaint to the appropriate regulator (the FCC for US service) and the Better Business Bureau, and reserve the right to pursue other remedies available under my service agreement.
+
+Regards,
+{{customer_name}}
+{{today}}
