@@ -275,6 +275,11 @@ pub fn save_equipment(
 }
 
 #[tauri::command]
+pub fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
+#[tauri::command]
 pub fn export_markdown(state: State<'_, AppState>) -> Result<String, String> {
     let report = build_case_report(&state.pool).map_err(|e| e.to_string())?;
     let plan = repo::active_plan(&state.pool).map_err(|e| e.to_string())?;

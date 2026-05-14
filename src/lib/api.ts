@@ -143,4 +143,5 @@ export const api = {
   saveEquipment: (items: Equipment[]) => invoke<void>("save_equipment", { items }),
   exportMarkdown: () => invoke<string>("export_markdown"),
   saveMarkdownReport: () => invoke<string>("save_markdown_report"),
+  quitApp: () => invoke<void>("quit_app"),
 };

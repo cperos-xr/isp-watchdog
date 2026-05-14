@@ -91,6 +91,7 @@ pub fn run() {
             commands::save_personal,
             commands::list_equipment,
             commands::save_equipment,
+            commands::quit_app,
             commands::export_markdown,
             commands::save_markdown_report,
         ])

@@ -1,4 +1,5 @@
 import { NavLink, Route, Routes, Navigate } from "react-router-dom";
+import { api } from "./lib/api";
 import Dashboard from "./pages/Dashboard";
 import History from "./pages/History";
 import Evidence from "./pages/Evidence";
@@ -18,6 +19,13 @@ export default function App() {
         <NavLink to="/settings">Settings</NavLink>
         <div style={{ flex: 1 }} />
         <NavLink to="/donate">♥ Donate</NavLink>
+        <button
+          className="secondary"
+          onClick={() => api.quitApp()}
+          style={{ marginTop: 8, fontSize: 12, textAlign: "left" }}
+        >
+          Exit
+        </button>
       </nav>
       <main className="main">
         <Routes>
