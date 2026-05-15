@@ -14,6 +14,38 @@ firmer over time, all the way to an FCC filing — pre-filled with your data.
 
 ---
 
+## See it in action
+
+### 1. Catch the problem
+
+The dashboard shows your real delivered speeds vs. what you're paying for — in real time and over 24h / 7d / 30d windows. When your ISP is underdelivering, it's immediately obvious.
+
+![Dashboard — throughput and latency over time](screenshots/dashboard.png)
+
+> *Example: paying for 300 Mbps, consistently getting 40%. The gateway RTT is 2 ms — your router is fine. The WAN isn't.*
+
+---
+
+### 2. Build an airtight case
+
+The Evidence page scores your case across six criteria — throughput, latency, packet loss, DNS, outages, and the LAN-vs-WAN comparison. Each finding is explained in plain English with the exact numbers, so you know exactly what to say.
+
+![Evidence & Case Strength — scored findings](screenshots/evidence.png)
+
+> *"Strong case, score 6" — 84% of probes were below 50% of advertised speed. That's a complaint worth sending.*
+
+---
+
+### 3. Send the complaint
+
+Pick your escalation tier — start polite, go firm if they ignore you, file with the FCC if it keeps happening. ISP contact info is built in. Click **Generate draft** and it opens pre-filled in your email client. You review before anything sends.
+
+![Complaint Drafts — four escalation tiers](screenshots/complain.png)
+
+> *Four tiers: friendly first contact → formal complaint → FCC filing → pre-litigation notice.*
+
+---
+
 ## Features
 
 - **Continuous background probes** — latency/DNS/packet-loss every ~60 s, throughput every ~30 min against Cloudflare's open speed-test endpoint.
