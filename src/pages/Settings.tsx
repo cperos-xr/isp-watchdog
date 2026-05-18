@@ -40,11 +40,6 @@ export default function Settings() {
   const [pollinationsSnapshot, setPollinationsSnapshot] = useState<PollinationsAccountSnapshot | null>(null);
   const [pollinationsLoading, setPollinationsLoading] = useState(false);
   const [pollinationsError, setPollinationsError] = useState("");
-  const [deviceClientId, setDeviceClientId] = useState("");
-  const [deviceUserCode, setDeviceUserCode] = useState<string | null>(null);
-  const [deviceVerificationUri, setDeviceVerificationUri] = useState<string | null>(null);
-  const [devicePolling, setDevicePolling] = useState(false);
-  const [devicePollTimer, setDevicePollTimer] = useState<number | null>(null);
   const pollinationsSummary = summarizePollinationsAccount(pollinationsSnapshot);
 
   useEffect(() => {
@@ -65,10 +60,8 @@ export default function Settings() {
   }, []);
 
   useEffect(() => {
-    return () => {
-      if (devicePollTimer) window.clearInterval(devicePollTimer);
-    };
-  }, [devicePollTimer]);
+    return () => {};
+  }, []);
 
   async function savePlan() {
     await api.savePlan({
@@ -403,71 +396,6 @@ export default function Settings() {
             <div style={{ marginTop: 8, marginBottom: 16 }}>
               <button className="secondary" onClick={savePollinationsModelSetting}>Save model</button>
             </div>
-
-            <label>Or: connect via App Key (client)</label>
-            <input style={{ width: "100%" }} value={deviceClientId} onChange={(e) => setDeviceClientId(e.target.value)} placeholder="pk_... (your App Key for attribution)" />
-            <div className="stat-sub" style={{ marginTop: 6 }}>
-              Use an App Key (`pk_...`) to start a device login flow and authorize this app to spend your Pollen. The device flow requests generate + usage scope so the app can show balance and recent costs.
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <button onClick={async () => {
-                try {
-                  const res: any = await api.pollinationsDeviceStart(deviceClientId || null);
-                  const uri = res.verification_uri_complete || res.verification_uri;
-                  // store device code internally if needed
-                  setDeviceUserCode(res.user_code || null);
-                  setDeviceVerificationUri(uri || null);
-                  // open browser to verification URL
-                  window.open(uri, '_blank');
-                  // start polling
-                  const interval = (res.interval || 5) * 1000;
-                  let pollId: any = window.setInterval(async () => {
-                    try {
-                      const token: any = await api.pollinationsDevicePoll(res.device_code);
-                      if (token) {
-                        await api.pollinationsSaveKey(token);
-                        setPollinationsKey(token);
-                        await refreshPollinationsAccount(token);
-                        flash('Pollinations key saved');
-                        window.clearInterval(pollId);
-                        setDevicePolling(false);
-                        setDevicePollTimer(null);
-                        
-                        setDeviceUserCode(null);
-                        setDeviceVerificationUri(null);
-                      }
-                    } catch (err: any) {
-                      const msg = String(err);
-                      if (msg.includes('authorization_pending') || msg.includes('slow_down')) {
-                        return;
-                      }
-                      console.error(err);
-                      window.clearInterval(pollId);
-                      setDevicePolling(false);
-                      setDevicePollTimer(null);
-                      setPollinationsError(msg);
-                      flash('Device login failed');
-                    }
-                  }, interval);
-                  setDevicePollTimer(pollId as unknown as number);
-                  setDevicePolling(true);
-                } catch (e) {
-                  console.error(e);
-                  setPollinationsError(String(e));
-                  flash('Device login failed');
-                }
-              }}>Start device login</button>
-              {devicePolling && <button style={{ marginLeft: 8 }} onClick={() => {
-                if (devicePollTimer) { window.clearInterval(devicePollTimer); setDevicePollTimer(null); setDevicePolling(false); }
-              }}>Cancel</button>}
-            </div>
-
-            {deviceUserCode && (
-              <div style={{ marginTop: 8 }}>
-                <div><strong>Enter code:</strong> {deviceUserCode}</div>
-                <div className="stat-sub">If your browser didn't open, go to <a href={deviceVerificationUri ?? '#'} target="_blank" rel="noreferrer">{deviceVerificationUri}</a> and enter the code above.</div>
-              </div>
-            )}
           </div>
         </div>
 
