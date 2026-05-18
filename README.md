@@ -131,6 +131,9 @@ to help you write a complaint, check your case strength, or suggest next steps.
 
 The saved file lands in your **Documents** folder as `isp-watchdog-YYYY-MM-DD.md`.
 
+### Optional: Pollinations (bring your own Pollen)
+
+ISP Watchdog can call Pollinations to generate summaries or draft complaint letters directly from the app. To enable it, open **Settings → AI Integrations**, paste your Pollinations secret key (starts with `sk_...`) and save. We only call the API when you explicitly request an AI action (short summary or full letter). See https://enter.pollinations.ai for account keys and BYOP instructions.
 ---
 
 ## Privacy

@@ -144,4 +144,9 @@ export const api = {
   exportMarkdown: () => invoke<string>("export_markdown"),
   saveMarkdownReport: () => invoke<string>("save_markdown_report"),
   quitApp: () => invoke<void>("quit_app"),
+  // Pollinations (BYOP) integration
+  pollinationsGetKey: () => invoke<string | null>("get_pollinations_key"),
+  pollinationsSaveKey: (key?: string | null) => invoke<void>("save_pollinations_key", { key }),
+  pollinationsGenerate: (prompt: string, model?: string | null, short?: boolean) =>
+    invoke<string>("pollinations_generate", { prompt, model, short }),
 };

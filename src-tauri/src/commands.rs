@@ -17,6 +17,7 @@ use crate::AppState;
 const SETTING_THRESHOLDS: &str = "thresholds_json";
 const SETTING_CUSTOMER_NAME: &str = "customer_name";
 const SETTING_ACCOUNT_NUMBER: &str = "account_number";
+const SETTING_POLLINATIONS_KEY: &str = "pollinations_api_key";
 
 #[derive(Serialize)]
 pub struct DashboardSnapshot {
@@ -398,4 +399,62 @@ pub fn save_personal(state: State<'_, AppState>, input: PersonalInput) -> Result
         repo::set_setting(&state.pool, SETTING_ACCOUNT_NUMBER, &a).map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+#[tauri::command]
+pub fn get_pollinations_key(state: State<'_, AppState>) -> Result<Option<String>, String> {
+    repo::get_setting(&state.pool, SETTING_POLLINATIONS_KEY).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn save_pollinations_key(state: State<'_, AppState>, key: Option<String>) -> Result<(), String> {
+    if let Some(k) = key {
+        repo::set_setting(&state.pool, SETTING_POLLINATIONS_KEY, &k).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn pollinations_generate(
+    state: State<'_, AppState>,
+    prompt: String,
+    model: Option<String>,
+    short: bool,
+) -> Result<String, String> {
+    // Retrieve stored user key
+    let key = repo::get_setting(&state.pool, SETTING_POLLINATIONS_KEY).map_err(|e| e.to_string())?;
+    let api_key = key.ok_or_else(|| "Pollinations API key not configured".to_string())?;
+
+    let client = reqwest::Client::new();
+    let model_name = model.unwrap_or_else(|| "openai".to_string());
+    let max_tokens = if short { 200 } else { 1200 };
+
+    let body = serde_json::json!({
+        "model": model_name,
+        "messages": [{ "role": "user", "content": prompt }],
+        "max_tokens": max_tokens,
+    });
+
+    let resp = client
+        .post("https://gen.pollinations.ai/v1/chat/completions")
+        .bearer_auth(api_key)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let status = resp.status();
+    let text = resp.text().await.map_err(|e| e.to_string())?;
+    if !status.is_success() {
+        return Err(format!("Pollinations error: {} - {}", status, text));
+    }
+
+    let v: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+    if let Some(c) = v.get("choices").and_then(|c| c.get(0)).and_then(|c0| c0.get("message")).and_then(|m| m.get("content")).and_then(|s| s.as_str()) {
+        Ok(c.to_string())
+    } else if let Some(r) = v.get("result").and_then(|r| r.as_str()) {
+        Ok(r.to_string())
+    } else {
+        Ok(text)
+    }
 }

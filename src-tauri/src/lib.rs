@@ -94,6 +94,9 @@ pub fn run() {
             commands::quit_app,
             commands::export_markdown,
             commands::save_markdown_report,
+            commands::get_pollinations_key,
+            commands::save_pollinations_key,
+            commands::pollinations_generate,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

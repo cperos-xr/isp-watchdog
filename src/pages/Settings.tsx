@@ -18,6 +18,7 @@ export default function Settings() {
   const [autostart, setAutostart] = useState(false);
   const [saved, setSaved] = useState("");
   const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [pollinationsKey, setPollinationsKey] = useState("");
 
   useEffect(() => {
     api.ispCatalog().then(setCatalog).catch(console.error);
@@ -25,6 +26,7 @@ export default function Settings() {
     api.getThresholds().then(setThresholds).catch(console.error);
     api.listEquipment().then(setEquipment).catch(console.error);
     isEnabled().then(setAutostart).catch(console.error);
+    api.pollinationsGetKey().then((k) => k && setPollinationsKey(k)).catch(console.error);
   }, []);
 
   async function savePlan() {
@@ -262,6 +264,29 @@ export default function Settings() {
       )}
 
       <div className="card">
+        <div className="card-title">AI Integrations</div>
+        <div className="grid">
+          <div>
+            <label>Pollinations API key</label>
+            <input style={{ width: "100%" }} value={pollinationsKey} onChange={(e) => setPollinationsKey(e.target.value)} placeholder="sk_... (your Pollinations key)" />
+            <div className="stat-sub" style={{ marginTop: 6 }}>
+              Paste your Pollinations secret key here (sk_...). See <a href="https://enter.pollinations.ai" target="_blank" rel="noreferrer">enter.pollinations.ai</a> for API keys and BYOP instructions.
+            </div>
+          </div>
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <button onClick={async () => {
+            try {
+              await api.pollinationsSaveKey(pollinationsKey || null);
+              flash('Pollinations key saved');
+            } catch (e) {
+              console.error(e);
+            }
+          }}>Save Pollinations key</button>
+        </div>
+      </div>
+
+      <div className="card">
         <div className="card-title">Startup</div>
         <div className="row" style={{ justifyContent: "space-between" }}>
           <div>
@@ -274,6 +299,7 @@ export default function Settings() {
         </div>
       </div>
     </div>
+
   );
 }
 

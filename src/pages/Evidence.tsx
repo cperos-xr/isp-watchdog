@@ -21,6 +21,8 @@ export default function Evidence() {
   const [report, setReport] = useState<CaseReport | null>(null);
   const [copyLabel, setCopyLabel] = useState("Copy for AI");
   const [saveLabel, setSaveLabel] = useState("Save .md");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState<string | null>(null);
 
   useEffect(() => {
     api.caseReport().then(setReport).catch(console.error);
@@ -48,6 +50,22 @@ export default function Evidence() {
     }
   }
 
+  async function generateAi(short: boolean) {
+    if (!confirm('Call Pollinations to generate AI output? This may use your Pollinations balance.')) return;
+    try {
+      setAiLoading(true);
+      const md = await api.exportMarkdown();
+      const prompt = `Analyze the following ISP Watchdog evidence report and produce a ${short ? 'short summary' : 'formal complaint letter and suggested email body'}.\n\n${md}`;
+      const out = await api.pollinationsGenerate(prompt, null, short);
+      setAiResult(out);
+    } catch (e) {
+      console.error(e);
+      setAiResult('Error: ' + String(e));
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
   if (!report) return <div>Loading…</div>;
 
   return (
@@ -57,8 +75,11 @@ export default function Evidence() {
         <div className="row" style={{ gap: 8 }}>
           <button className="secondary" onClick={copyForAI}>{copyLabel}</button>
           <button className="secondary" onClick={saveMd}>{saveLabel}</button>
+          <button className="secondary" onClick={() => generateAi(true)} disabled={aiLoading}>{aiLoading ? 'Generating…' : 'AI: Short summary'}</button>
+          <button onClick={() => generateAi(false)} disabled={aiLoading}>{aiLoading ? 'Generating…' : 'AI: Full letter'}</button>
         </div>
       </div>
+
       <div className="card">
         <div className="card-title">Case strength (last {report.window_days} days)</div>
         <div className="row" style={{ gap: 16 }}>
@@ -97,6 +118,16 @@ export default function Evidence() {
           ))}
         </ul>
       </div>
+
+      {aiResult && (
+        <div className="card">
+          <div className="card-title">AI Output</div>
+          <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>{aiResult}</pre>
+          <div style={{ marginTop: 8 }}>
+            <button onClick={() => navigator.clipboard.writeText(aiResult)}>Copy AI output</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
