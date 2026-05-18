@@ -1,6 +1,23 @@
 import { useEffect, useState } from "react";
 import { enable, isEnabled, disable } from "@tauri-apps/plugin-autostart";
-import { api, type Equipment, type IspEntry, type Plan, type Thresholds } from "../lib/api";
+import {
+  api,
+  DEFAULT_POLLINATIONS_MODEL,
+  summarizePollinationsAccount,
+  type Equipment,
+  type IspEntry,
+  type Plan,
+  type PollinationsAccountSnapshot,
+  type Thresholds,
+} from "../lib/api";
+
+const POLLINATIONS_MODEL_OPTIONS = [
+  "gpt-5.4-mini",
+  "openai",
+  "mistral",
+  "mistral-4",
+  "deepseek-v4-flash",
+];
 
 export default function Settings() {
   const [catalog, setCatalog] = useState<IspEntry[]>([]);
@@ -19,11 +36,16 @@ export default function Settings() {
   const [saved, setSaved] = useState("");
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [pollinationsKey, setPollinationsKey] = useState("");
+  const [pollinationsModel, setPollinationsModel] = useState(DEFAULT_POLLINATIONS_MODEL);
+  const [pollinationsSnapshot, setPollinationsSnapshot] = useState<PollinationsAccountSnapshot | null>(null);
+  const [pollinationsLoading, setPollinationsLoading] = useState(false);
+  const [pollinationsError, setPollinationsError] = useState("");
   const [deviceClientId, setDeviceClientId] = useState("");
   const [deviceUserCode, setDeviceUserCode] = useState<string | null>(null);
   const [deviceVerificationUri, setDeviceVerificationUri] = useState<string | null>(null);
   const [devicePolling, setDevicePolling] = useState(false);
   const [devicePollTimer, setDevicePollTimer] = useState<number | null>(null);
+  const pollinationsSummary = summarizePollinationsAccount(pollinationsSnapshot);
 
   useEffect(() => {
     api.ispCatalog().then(setCatalog).catch(console.error);
@@ -31,7 +53,15 @@ export default function Settings() {
     api.getThresholds().then(setThresholds).catch(console.error);
     api.listEquipment().then(setEquipment).catch(console.error);
     isEnabled().then(setAutostart).catch(console.error);
-    api.pollinationsGetKey().then((k) => k && setPollinationsKey(k)).catch(console.error);
+    Promise.all([api.pollinationsGetKey(), api.pollinationsGetModel()])
+      .then(([key, model]) => {
+        if (key) {
+          setPollinationsKey(key);
+          void refreshPollinationsAccount(key);
+        }
+        if (model) setPollinationsModel(model);
+      })
+      .catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -87,6 +117,53 @@ export default function Settings() {
   function flash(msg: string) {
     setSaved(msg);
     setTimeout(() => setSaved(""), 1500);
+  }
+
+  async function refreshPollinationsAccount(nextKey = pollinationsKey) {
+    if (!nextKey.trim()) {
+      setPollinationsSnapshot(null);
+      setPollinationsError("");
+      return;
+    }
+
+    try {
+      setPollinationsLoading(true);
+      setPollinationsError("");
+      const snapshot = await api.pollinationsAccountSnapshot();
+      setPollinationsSnapshot(snapshot);
+    } catch (error) {
+      setPollinationsSnapshot(null);
+      setPollinationsError(String(error));
+    } finally {
+      setPollinationsLoading(false);
+    }
+  }
+
+  async function savePollinationsKey() {
+    const nextKey = pollinationsKey.trim();
+
+    try {
+      await api.pollinationsSaveKey(nextKey || null);
+      setPollinationsKey(nextKey);
+      await refreshPollinationsAccount(nextKey);
+      flash(nextKey ? "Pollinations key saved" : "Pollinations key cleared");
+    } catch (error) {
+      setPollinationsError(String(error));
+      console.error(error);
+    }
+  }
+
+  async function savePollinationsModelSetting() {
+    const nextModel = pollinationsModel.trim();
+
+    try {
+      await api.pollinationsSaveModel(nextModel || null);
+      setPollinationsModel(nextModel || DEFAULT_POLLINATIONS_MODEL);
+      flash("Pollinations model saved");
+    } catch (error) {
+      setPollinationsError(String(error));
+      console.error(error);
+    }
   }
 
   return (
@@ -281,25 +358,41 @@ export default function Settings() {
             <label>Pollinations API key (secret)</label>
             <input style={{ width: "100%" }} value={pollinationsKey} onChange={(e) => setPollinationsKey(e.target.value)} placeholder="sk_... (your Pollinations key)" />
             <div className="stat-sub" style={{ marginTop: 6 }}>
-              Paste your Pollinations secret key here (sk_...). See <a href="https://enter.pollinations.ai" target="_blank" rel="noreferrer">enter.pollinations.ai</a> for API keys and BYOP instructions.
+              Paste your Pollinations secret key here (sk_...). ISP Watchdog only uses authenticated Pollinations routes for generation and account usage. See <a href="https://enter.pollinations.ai" target="_blank" rel="noreferrer">enter.pollinations.ai</a> for API keys and BYOP instructions.
             </div>
             <div style={{ marginTop: 8 }}>
-              <button onClick={async () => {
-                try {
-                  await api.pollinationsSaveKey(pollinationsKey || null);
-                  flash('Pollinations key saved');
-                } catch (e) {
-                  console.error(e);
-                }
-              }}>Save Pollinations key</button>
+              <button onClick={savePollinationsKey}>Save Pollinations key</button>
+              <button className="secondary" style={{ marginLeft: 8 }} onClick={() => void refreshPollinationsAccount()} disabled={pollinationsLoading || !pollinationsKey.trim()}>
+                {pollinationsLoading ? "Refreshing…" : "Refresh usage"}
+              </button>
             </div>
           </div>
 
           <div>
+            <label>Default text model</label>
+            <input
+              list="pollinations-model-options"
+              style={{ width: "100%" }}
+              value={pollinationsModel}
+              onChange={(e) => setPollinationsModel(e.target.value)}
+              placeholder={DEFAULT_POLLINATIONS_MODEL}
+            />
+            <datalist id="pollinations-model-options">
+              {POLLINATIONS_MODEL_OPTIONS.map((model) => (
+                <option key={model} value={model} />
+              ))}
+            </datalist>
+            <div className="stat-sub" style={{ marginTop: 6 }}>
+              This is the model used for in-app summaries and letters. Default is {DEFAULT_POLLINATIONS_MODEL}, but the user can override it.
+            </div>
+            <div style={{ marginTop: 8, marginBottom: 16 }}>
+              <button className="secondary" onClick={savePollinationsModelSetting}>Save model</button>
+            </div>
+
             <label>Or: connect via App Key (client)</label>
             <input style={{ width: "100%" }} value={deviceClientId} onChange={(e) => setDeviceClientId(e.target.value)} placeholder="pk_... (your App Key for attribution)" />
             <div className="stat-sub" style={{ marginTop: 6 }}>
-              Use an App Key (`pk_...`) to start a device login flow and authorize this app to spend your Pollen.
+              Use an App Key (`pk_...`) to start a device login flow and authorize this app to spend your Pollen. The device flow requests generate + usage scope so the app can show balance and recent costs.
             </div>
             <div style={{ marginTop: 8 }}>
               <button onClick={async () => {
@@ -319,6 +412,7 @@ export default function Settings() {
                       if (token) {
                         await api.pollinationsSaveKey(token);
                         setPollinationsKey(token);
+                        await refreshPollinationsAccount(token);
                         flash('Pollinations key saved');
                         window.clearInterval(pollId);
                         setDevicePolling(false);
@@ -336,6 +430,7 @@ export default function Settings() {
                       window.clearInterval(pollId);
                       setDevicePolling(false);
                       setDevicePollTimer(null);
+                      setPollinationsError(msg);
                       flash('Device login failed');
                     }
                   }, interval);
@@ -343,6 +438,7 @@ export default function Settings() {
                   setDevicePolling(true);
                 } catch (e) {
                   console.error(e);
+                  setPollinationsError(String(e));
                   flash('Device login failed');
                 }
               }}>Start device login</button>
@@ -358,6 +454,55 @@ export default function Settings() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className="card" style={{ background: "#0c0f14", marginTop: 12 }}>
+          <div className="card-title">Private account status</div>
+          {!pollinationsKey.trim() ? (
+            <div className="stat-sub">Save a Pollinations key first to check balance, recent usage, and whether the key includes usage scope.</div>
+          ) : (
+            <>
+              <div className="grid">
+                <div>
+                  <div className="stat-sub">Key status</div>
+                  <div className="stat">{describePollinationsKeyStatus(pollinationsSummary)}</div>
+                </div>
+                <div>
+                  <div className="stat-sub">Active model</div>
+                  <div className="stat">{pollinationsModel || DEFAULT_POLLINATIONS_MODEL}</div>
+                </div>
+                <div>
+                  <div className="stat-sub">Balance</div>
+                  <div className="stat">{formatPollen(pollinationsSummary.balance)}</div>
+                </div>
+                <div>
+                  <div className="stat-sub">Today</div>
+                  <div className="stat">{formatPollen(pollinationsSummary.todaySpend)}</div>
+                  <div className="stat-sub">{pollinationsSummary.todayRequests != null ? `${pollinationsSummary.todayRequests} requests` : "Request count unavailable"}</div>
+                </div>
+                <div>
+                  <div className="stat-sub">Recent estimate</div>
+                  <div className="stat">{formatPollen(pollinationsSummary.recentAverageCost)}</div>
+                  <div className="stat-sub">Based on recent private usage entries.</div>
+                </div>
+                <div>
+                  <div className="stat-sub">Scopes</div>
+                  <div className="stat-sub">{pollinationsSummary.scopes.length > 0 ? pollinationsSummary.scopes.join(", ") : "Unknown"}</div>
+                </div>
+              </div>
+
+              {pollinationsError && (
+                <div className="stat-sub" style={{ color: "#f5a623", marginTop: 8 }}>
+                  {pollinationsError}
+                </div>
+              )}
+              {pollinationsSummary.warnings.map((warning, index) => (
+                <div key={`${warning}-${index}`} className="stat-sub" style={{ color: "#f5a623", marginTop: 6 }}>
+                  {warning}
+                </div>
+              ))}
+            </>
+          )}
         </div>
       </div>
 
@@ -391,4 +536,14 @@ function NumField({ label, v, on, step }: { label: string; v: number; on: (n: nu
       />
     </div>
   );
+}
+
+function describePollinationsKeyStatus(summary: ReturnType<typeof summarizePollinationsAccount>) {
+  if (summary.valid === true) return summary.keyType ? `Valid (${summary.keyType})` : "Valid";
+  if (summary.valid === false) return "Invalid";
+  return summary.keyType ? `Unknown (${summary.keyType})` : "Unknown";
+}
+
+function formatPollen(value?: number | null) {
+  return value == null ? "—" : `${value.toFixed(2)} pollen`;
 }

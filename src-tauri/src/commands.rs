@@ -18,6 +18,7 @@ const SETTING_THRESHOLDS: &str = "thresholds_json";
 const SETTING_CUSTOMER_NAME: &str = "customer_name";
 const SETTING_ACCOUNT_NUMBER: &str = "account_number";
 const SETTING_POLLINATIONS_KEY: &str = "pollinations_api_key";
+const SETTING_POLLINATIONS_MODEL: &str = "pollinations_model";
 
 #[derive(Serialize)]
 pub struct DashboardSnapshot {
@@ -213,6 +214,45 @@ fn split_subject(rendered: &str) -> (String, String) {
     ("ISP service complaint".to_string(), rendered.to_string())
 }
 
+fn normalized_setting(value: Option<String>) -> Option<String> {
+    value.and_then(|raw| {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    })
+}
+
+fn load_pollinations_key(pool: &DbPool) -> Result<String, String> {
+    normalized_setting(
+        repo::get_setting(pool, SETTING_POLLINATIONS_KEY).map_err(|e| e.to_string())?,
+    )
+    .ok_or_else(|| "Pollinations API key not configured".to_string())
+}
+
+async fn pollinations_get_json(
+    client: &reqwest::Client,
+    api_key: &str,
+    path: &str,
+) -> Result<serde_json::Value, String> {
+    let resp = client
+        .get(format!("https://gen.pollinations.ai{path}"))
+        .bearer_auth(api_key)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let status = resp.status();
+    let text = resp.text().await.map_err(|e| e.to_string())?;
+    if !status.is_success() {
+        return Err(format!("{} - {}", status, text));
+    }
+
+    serde_json::from_str(&text).map_err(|e| format!("{} (body: {})", e, text))
+}
+
 #[tauri::command]
 pub fn run_throughput_now(state: State<'_, AppState>) -> Result<String, String> {
     let pool = state.pool.clone();
@@ -403,15 +443,86 @@ pub fn save_personal(state: State<'_, AppState>, input: PersonalInput) -> Result
 
 #[tauri::command]
 pub fn get_pollinations_key(state: State<'_, AppState>) -> Result<Option<String>, String> {
-    repo::get_setting(&state.pool, SETTING_POLLINATIONS_KEY).map_err(|e| e.to_string())
+    repo::get_setting(&state.pool, SETTING_POLLINATIONS_KEY)
+        .map(normalized_setting)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn save_pollinations_key(state: State<'_, AppState>, key: Option<String>) -> Result<(), String> {
-    if let Some(k) = key {
-        repo::set_setting(&state.pool, SETTING_POLLINATIONS_KEY, &k).map_err(|e| e.to_string())?;
-    }
-    Ok(())
+    let value = key.as_deref().map(str::trim).unwrap_or("");
+    repo::set_setting(&state.pool, SETTING_POLLINATIONS_KEY, value).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_pollinations_model(state: State<'_, AppState>) -> Result<Option<String>, String> {
+    repo::get_setting(&state.pool, SETTING_POLLINATIONS_MODEL)
+        .map(normalized_setting)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn save_pollinations_model(
+    state: State<'_, AppState>,
+    model: Option<String>,
+) -> Result<(), String> {
+    let value = model.as_deref().map(str::trim).unwrap_or("");
+    repo::set_setting(&state.pool, SETTING_POLLINATIONS_MODEL, value).map_err(|e| e.to_string())
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct PollinationsAccountSnapshot {
+    pub key: Option<serde_json::Value>,
+    pub balance: Option<serde_json::Value>,
+    pub usage: Option<serde_json::Value>,
+    pub daily: Option<serde_json::Value>,
+    pub errors: Vec<String>,
+}
+
+#[tauri::command]
+pub async fn pollinations_account_snapshot(
+    state: State<'_, AppState>,
+) -> Result<PollinationsAccountSnapshot, String> {
+    let api_key = load_pollinations_key(&state.pool)?;
+    let client = reqwest::Client::new();
+    let mut errors = Vec::new();
+
+    let key = match pollinations_get_json(&client, &api_key, "/account/key").await {
+        Ok(value) => Some(value),
+        Err(err) => {
+            errors.push(format!("key: {err}"));
+            None
+        }
+    };
+    let balance = match pollinations_get_json(&client, &api_key, "/account/balance").await {
+        Ok(value) => Some(value),
+        Err(err) => {
+            errors.push(format!("balance: {err}"));
+            None
+        }
+    };
+    let usage = match pollinations_get_json(&client, &api_key, "/account/usage").await {
+        Ok(value) => Some(value),
+        Err(err) => {
+            errors.push(format!("usage: {err}"));
+            None
+        }
+    };
+    let daily = match pollinations_get_json(&client, &api_key, "/account/usage/daily").await {
+        Ok(value) => Some(value),
+        Err(err) => {
+            errors.push(format!("daily: {err}"));
+            None
+        }
+    };
+
+    Ok(PollinationsAccountSnapshot {
+        key,
+        balance,
+        usage,
+        daily,
+        errors,
+    })
 }
 
 #[derive(Serialize, Deserialize)]
@@ -430,10 +541,10 @@ pub async fn pollinations_device_start(
     client_id: Option<String>,
 ) -> Result<DeviceStart, String> {
     let client = reqwest::Client::new();
-    let body = if let Some(cid) = client_id {
-        serde_json::json!({ "client_id": cid })
+    let body = if let Some(cid) = normalized_setting(client_id) {
+        serde_json::json!({ "client_id": cid, "scope": "generate usage" })
     } else {
-        serde_json::json!({})
+        serde_json::json!({ "scope": "generate usage" })
     };
 
     let resp = client
@@ -502,12 +613,14 @@ pub async fn pollinations_generate(
     model: Option<String>,
     short: bool,
 ) -> Result<String, String> {
-    // Retrieve stored user key
-    let key = repo::get_setting(&state.pool, SETTING_POLLINATIONS_KEY).map_err(|e| e.to_string())?;
-    let api_key = key.ok_or_else(|| "Pollinations API key not configured".to_string())?;
+    let api_key = load_pollinations_key(&state.pool)?;
+    let saved_model = repo::get_setting(&state.pool, SETTING_POLLINATIONS_MODEL)
+        .map_err(|e| e.to_string())?;
 
     let client = reqwest::Client::new();
-    let model_name = model.unwrap_or_else(|| "openai".to_string());
+    let model_name = normalized_setting(model)
+        .or_else(|| normalized_setting(saved_model))
+        .unwrap_or_else(|| "gpt-5.4-mini".to_string());
     let max_tokens = if short { 200 } else { 1200 };
 
     let body = serde_json::json!({

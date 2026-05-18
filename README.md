@@ -133,7 +133,9 @@ The saved file lands in your **Documents** folder as `isp-watchdog-YYYY-MM-DD.md
 
 ### Optional: Pollinations (bring your own Pollen)
 
-ISP Watchdog can call Pollinations to generate summaries or draft complaint letters directly from the app. To enable it, open **Settings → AI Integrations**, paste your Pollinations secret key (starts with `sk_...`) and save. We only call the API when you explicitly request an AI action (short summary or full letter). See https://enter.pollinations.ai for account keys and BYOP instructions.
+ISP Watchdog can call Pollinations to generate summaries or draft complaint letters directly from the app. To enable it, open **Settings → AI Integrations**, paste your Pollinations secret key (starts with `sk_...`) or complete the App Key device flow, then save. The app only uses authenticated Pollinations routes: private text generation plus account balance / usage endpoints so it can show remaining Pollen, recent usage, and a rough per-request estimate before you run an AI action.
+
+The default in-app text model is `gpt-5.4-mini`, and you can override it in **Settings** if you want a different Pollinations text model. See https://enter.pollinations.ai for account keys and BYOP instructions.
 ---
 
 ## Privacy

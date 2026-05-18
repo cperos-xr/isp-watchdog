@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { api, type CaseReport } from "../lib/api";
+import {
+  api,
+  DEFAULT_POLLINATIONS_MODEL,
+  summarizePollinationsAccount,
+  type CaseReport,
+  type PollinationsAccountSnapshot,
+} from "../lib/api";
 
 const STRENGTH_LABEL: Record<CaseReport["strength"], string> = {
   None: "No case yet",
@@ -23,10 +29,42 @@ export default function Evidence() {
   const [saveLabel, setSaveLabel] = useState("Save .md");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<string | null>(null);
+  const [pollinationsConfigured, setPollinationsConfigured] = useState<boolean | null>(null);
+  const [pollinationsModel, setPollinationsModel] = useState(DEFAULT_POLLINATIONS_MODEL);
+  const [pollinationsSnapshot, setPollinationsSnapshot] = useState<PollinationsAccountSnapshot | null>(null);
+  const [pollinationsLoading, setPollinationsLoading] = useState(false);
+  const [pollinationsError, setPollinationsError] = useState("");
+  const pollinationsSummary = summarizePollinationsAccount(pollinationsSnapshot);
 
   useEffect(() => {
     api.caseReport().then(setReport).catch(console.error);
+    Promise.all([api.pollinationsGetKey(), api.pollinationsGetModel()])
+      .then(([key, model]) => {
+        setPollinationsConfigured(Boolean(key));
+        if (model) setPollinationsModel(model);
+        if (key) void refreshPollinationsAccount();
+      })
+      .catch(console.error);
   }, []);
+
+  async function refreshPollinationsAccount() {
+    try {
+      setPollinationsLoading(true);
+      setPollinationsError("");
+      const snapshot = await api.pollinationsAccountSnapshot();
+      setPollinationsSnapshot(snapshot);
+    } catch (error) {
+      setPollinationsSnapshot(null);
+      setPollinationsError(String(error));
+    } finally {
+      setPollinationsLoading(false);
+    }
+  }
+
+  function estimateRequestCost(short: boolean) {
+    if (short) return pollinationsSummary.recentAverageCost;
+    return pollinationsSummary.recentMaxCost ?? pollinationsSummary.recentAverageCost;
+  }
 
   async function copyForAI() {
     try {
@@ -51,13 +89,31 @@ export default function Evidence() {
   }
 
   async function generateAi(short: boolean) {
-    if (!confirm('Call Pollinations to generate AI output? This may use your Pollinations balance.')) return;
+    const estimate = estimateRequestCost(short);
+    if (pollinationsSummary.balance != null && estimate != null && pollinationsSummary.balance < estimate) {
+      setAiResult("Pollinations balance looks below the recent cost for this action. Refill or wait before retrying.");
+      return;
+    }
+
+    const confirmation = [
+      `Call Pollinations with ${pollinationsModel || DEFAULT_POLLINATIONS_MODEL}?`,
+      pollinationsSummary.balance != null
+        ? `Current balance: ${formatPollen(pollinationsSummary.balance)}`
+        : "Balance unavailable for this key.",
+      estimate != null
+        ? `Recent estimated request cost: ${formatPollen(estimate)}`
+        : "Exact cost varies by model and output length.",
+    ].join("\n");
+    if (!confirm(confirmation)) return;
+
     try {
       setAiLoading(true);
+      setAiResult(null);
       const md = await api.exportMarkdown();
       const prompt = `Analyze the following ISP Watchdog evidence report and produce a ${short ? 'short summary' : 'formal complaint letter and suggested email body'}.\n\n${md}`;
       const out = await api.pollinationsGenerate(prompt, null, short);
       setAiResult(out);
+      await refreshPollinationsAccount();
     } catch (e) {
       console.error(e);
       setAiResult('Error: ' + String(e));
@@ -75,9 +131,42 @@ export default function Evidence() {
         <div className="row" style={{ gap: 8 }}>
           <button className="secondary" onClick={copyForAI}>{copyLabel}</button>
           <button className="secondary" onClick={saveMd}>{saveLabel}</button>
-          <button className="secondary" onClick={() => generateAi(true)} disabled={aiLoading}>{aiLoading ? 'Generating…' : 'AI: Short summary'}</button>
-          <button onClick={() => generateAi(false)} disabled={aiLoading}>{aiLoading ? 'Generating…' : 'AI: Full letter'}</button>
+          <button className="secondary" onClick={() => generateAi(true)} disabled={aiLoading || pollinationsConfigured === false}>{aiLoading ? 'Generating…' : 'AI: Short summary'}</button>
+          <button onClick={() => generateAi(false)} disabled={aiLoading || pollinationsConfigured === false}>{aiLoading ? 'Generating…' : 'AI: Full letter'}</button>
         </div>
+      </div>
+
+      <div className="card">
+        <div className="spaced" style={{ marginBottom: 8 }}>
+          <div className="card-title">Pollinations usage</div>
+          <button className="secondary" onClick={() => void refreshPollinationsAccount()} disabled={pollinationsLoading || pollinationsConfigured !== true}>
+            {pollinationsLoading ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
+
+        {pollinationsConfigured === false ? (
+          <div className="stat-sub">Add a Pollinations key in Settings before using in-app AI actions.</div>
+        ) : (
+          <>
+            <div className="grid">
+              <Summary label="Model" value={pollinationsModel || DEFAULT_POLLINATIONS_MODEL} />
+              <Summary label="Balance" value={formatPollen(pollinationsSummary.balance)} />
+              <Summary label="Today" value={formatPollen(pollinationsSummary.todaySpend)} sub={pollinationsSummary.todayRequests != null ? `${pollinationsSummary.todayRequests} requests` : "Request count unavailable"} />
+              <Summary label="Next estimate" value={formatPollen(pollinationsSummary.recentAverageCost)} sub="Based on recent private usage." />
+            </div>
+
+            {pollinationsError && (
+              <div className="stat-sub" style={{ color: "#f5a623", marginTop: 8 }}>
+                {pollinationsError}
+              </div>
+            )}
+            {pollinationsSummary.warnings.map((warning, index) => (
+              <div key={`${warning}-${index}`} className="stat-sub" style={{ color: "#f5a623", marginTop: 6 }}>
+                {warning}
+              </div>
+            ))}
+          </>
+        )}
       </div>
 
       <div className="card">
@@ -144,3 +233,4 @@ function Summary({ label, value, sub }: { label: string; value: string; sub?: st
 function fmtMbps(n?: number | null) { return n == null ? "—" : `${n.toFixed(1)} Mbps`; }
 function fmtMs(n?: number | null) { return n == null ? "—" : `${n.toFixed(1)} ms`; }
 function fmtPct(n?: number | null) { return n == null ? "—" : `${(n * 100).toFixed(2)}%`; }
+function formatPollen(n?: number | null) { return n == null ? "—" : `${n.toFixed(2)} pollen`; }
