@@ -22,40 +22,42 @@ export const DONATE_ENTRIES: DonateEntry[] = [
     value: "https://venmo.com/u/Constantine-Peros",
     note: "@Constantine-Peros",
   },
-  {
-    kind: "link",
-    label: "PayPal",
-    value: "https://paypal.me/your-handle",
-  },
-  {
-    kind: "link",
-    label: "GitHub Sponsors",
-    value: "https://github.com/sponsors/your-handle",
-  },
-  {
-    kind: "crypto",
-    label: "Bitcoin",
-    network: "BTC",
-    value: "[your-btc-address]",
-  },
-  {
-    kind: "crypto",
-    label: "Ethereum",
-    network: "ETH (L1)",
-    value: "[your-eth-address]",
-  },
-  {
-    kind: "crypto",
-    label: "USDC",
-    network: "Base / Ethereum",
-    value: "[your-usdc-address]",
-  },
-  {
-    kind: "crypto",
-    label: "Monero",
-    network: "XMR",
-    value: "[your-xmr-address]",
-  },
+  // PayPal and GitHub Sponsors placeholder entries removed. Add real links here if you want them shown.
+  // {
+  //   kind: "link",
+  //   label: "PayPal",
+  //   value: "https://paypal.me/your-handle",
+  // },
+  // {
+  //   kind: "link",
+  //   label: "GitHub Sponsors",
+  //   value: "https://github.com/sponsors/your-handle",
+  // },
+  // Placeholder entries removed. Uncomment and replace with real values if you want them shown.
+  // {
+  //   kind: "crypto",
+  //   label: "Bitcoin",
+  //   network: "BTC",
+  //   value: "[your-btc-address]",
+  // },
+  // {
+  //   kind: "crypto",
+  //   label: "Ethereum",
+  //   network: "ETH (L1)",
+  //   value: "[your-eth-address]",
+  // },
+  // {
+  //   kind: "crypto",
+  //   label: "USDC",
+  //   network: "Base / Ethereum",
+  //   value: "[your-usdc-address]",
+  // },
+  // {
+  //   kind: "crypto",
+  //   label: "Monero",
+  //   network: "XMR",
+  //   value: "[your-xmr-address]",
+  // },
 ];
 
 export const DONATE_MESSAGE =

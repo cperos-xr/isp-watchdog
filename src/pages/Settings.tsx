@@ -355,16 +355,31 @@ export default function Settings() {
         <div className="card-title">AI Integrations</div>
         <div className="grid">
           <div>
-            <label>Pollinations API key (secret)</label>
-            <input style={{ width: "100%" }} value={pollinationsKey} onChange={(e) => setPollinationsKey(e.target.value)} placeholder="sk_... (your Pollinations key)" />
-            <div className="stat-sub" style={{ marginTop: 6 }}>
-              Paste your Pollinations secret key here (sk_...). ISP Watchdog only uses authenticated Pollinations routes for generation and account usage. See <a href="https://enter.pollinations.ai" target="_blank" rel="noreferrer">enter.pollinations.ai</a> for API keys and BYOP instructions.
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <button onClick={savePollinationsKey}>Save Pollinations key</button>
-              <button className="secondary" style={{ marginLeft: 8 }} onClick={() => void refreshPollinationsAccount()} disabled={pollinationsLoading || !pollinationsKey.trim()}>
-                {pollinationsLoading ? "Refreshing…" : "Refresh usage"}
-              </button>
+            <div style={{ display: "grid", gap: 10, maxWidth: 560 }}>
+              <div style={{ display: "grid", gap: 6 }}>
+                <label>Pollinations API key (secret)</label>
+                <input
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid var(--panel-border)",
+                    background: "var(--panel)",
+                  }}
+                  value={pollinationsKey}
+                  onChange={(e) => setPollinationsKey(e.target.value)}
+                  placeholder="sk_... (your Pollinations key)"
+                />
+              </div>
+              <div className="stat-sub" style={{ marginTop: 0 }}>
+                Paste your Pollinations secret key here (sk_...). ISP Watchdog only uses authenticated Pollinations routes for generation and account usage. See <a href="https://enter.pollinations.ai" target="_blank" rel="noreferrer">enter.pollinations.ai</a> for API keys and BYOP instructions.
+              </div>
+              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                <button onClick={savePollinationsKey}>Save key</button>
+                <button className="secondary" onClick={() => void refreshPollinationsAccount()} disabled={pollinationsLoading || !pollinationsKey.trim()}>
+                  {pollinationsLoading ? "Refreshing…" : "Refresh usage"}
+                </button>
+              </div>
             </div>
           </div>
 
