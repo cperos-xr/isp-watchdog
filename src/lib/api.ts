@@ -149,4 +149,8 @@ export const api = {
   pollinationsSaveKey: (key?: string | null) => invoke<void>("save_pollinations_key", { key }),
   pollinationsGenerate: (prompt: string, model?: string | null, short?: boolean) =>
     invoke<string>("pollinations_generate", { prompt, model, short }),
+  pollinationsDeviceStart: (client_id?: string | null) =>
+    invoke<any>("pollinations_device_start", { client_id }),
+  pollinationsDevicePoll: (device_code: string) =>
+    invoke<any>("pollinations_device_token_poll", { device_code }),
 };

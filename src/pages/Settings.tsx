@@ -19,6 +19,11 @@ export default function Settings() {
   const [saved, setSaved] = useState("");
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [pollinationsKey, setPollinationsKey] = useState("");
+  const [deviceClientId, setDeviceClientId] = useState("");
+  const [deviceUserCode, setDeviceUserCode] = useState<string | null>(null);
+  const [deviceVerificationUri, setDeviceVerificationUri] = useState<string | null>(null);
+  const [devicePolling, setDevicePolling] = useState(false);
+  const [devicePollTimer, setDevicePollTimer] = useState<number | null>(null);
 
   useEffect(() => {
     api.ispCatalog().then(setCatalog).catch(console.error);
@@ -28,6 +33,12 @@ export default function Settings() {
     isEnabled().then(setAutostart).catch(console.error);
     api.pollinationsGetKey().then((k) => k && setPollinationsKey(k)).catch(console.error);
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (devicePollTimer) window.clearInterval(devicePollTimer);
+    };
+  }, [devicePollTimer]);
 
   async function savePlan() {
     await api.savePlan({
@@ -267,22 +278,86 @@ export default function Settings() {
         <div className="card-title">AI Integrations</div>
         <div className="grid">
           <div>
-            <label>Pollinations API key</label>
+            <label>Pollinations API key (secret)</label>
             <input style={{ width: "100%" }} value={pollinationsKey} onChange={(e) => setPollinationsKey(e.target.value)} placeholder="sk_... (your Pollinations key)" />
             <div className="stat-sub" style={{ marginTop: 6 }}>
               Paste your Pollinations secret key here (sk_...). See <a href="https://enter.pollinations.ai" target="_blank" rel="noreferrer">enter.pollinations.ai</a> for API keys and BYOP instructions.
             </div>
+            <div style={{ marginTop: 8 }}>
+              <button onClick={async () => {
+                try {
+                  await api.pollinationsSaveKey(pollinationsKey || null);
+                  flash('Pollinations key saved');
+                } catch (e) {
+                  console.error(e);
+                }
+              }}>Save Pollinations key</button>
+            </div>
           </div>
-        </div>
-        <div style={{ marginTop: 12 }}>
-          <button onClick={async () => {
-            try {
-              await api.pollinationsSaveKey(pollinationsKey || null);
-              flash('Pollinations key saved');
-            } catch (e) {
-              console.error(e);
-            }
-          }}>Save Pollinations key</button>
+
+          <div>
+            <label>Or: connect via App Key (client)</label>
+            <input style={{ width: "100%" }} value={deviceClientId} onChange={(e) => setDeviceClientId(e.target.value)} placeholder="pk_... (your App Key for attribution)" />
+            <div className="stat-sub" style={{ marginTop: 6 }}>
+              Use an App Key (`pk_...`) to start a device login flow and authorize this app to spend your Pollen.
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <button onClick={async () => {
+                try {
+                  const res: any = await api.pollinationsDeviceStart(deviceClientId || null);
+                  const uri = res.verification_uri_complete || res.verification_uri;
+                  // store device code internally if needed
+                  setDeviceUserCode(res.user_code || null);
+                  setDeviceVerificationUri(uri || null);
+                  // open browser to verification URL
+                  window.open(uri, '_blank');
+                  // start polling
+                  const interval = (res.interval || 5) * 1000;
+                  let pollId: any = window.setInterval(async () => {
+                    try {
+                      const token: any = await api.pollinationsDevicePoll(res.device_code);
+                      if (token) {
+                        await api.pollinationsSaveKey(token);
+                        setPollinationsKey(token);
+                        flash('Pollinations key saved');
+                        window.clearInterval(pollId);
+                        setDevicePolling(false);
+                        setDevicePollTimer(null);
+                        
+                        setDeviceUserCode(null);
+                        setDeviceVerificationUri(null);
+                      }
+                    } catch (err: any) {
+                      const msg = String(err);
+                      if (msg.includes('authorization_pending') || msg.includes('slow_down')) {
+                        return;
+                      }
+                      console.error(err);
+                      window.clearInterval(pollId);
+                      setDevicePolling(false);
+                      setDevicePollTimer(null);
+                      flash('Device login failed');
+                    }
+                  }, interval);
+                  setDevicePollTimer(pollId as unknown as number);
+                  setDevicePolling(true);
+                } catch (e) {
+                  console.error(e);
+                  flash('Device login failed');
+                }
+              }}>Start device login</button>
+              {devicePolling && <button style={{ marginLeft: 8 }} onClick={() => {
+                if (devicePollTimer) { window.clearInterval(devicePollTimer); setDevicePollTimer(null); setDevicePolling(false); }
+              }}>Cancel</button>}
+            </div>
+
+            {deviceUserCode && (
+              <div style={{ marginTop: 8 }}>
+                <div><strong>Enter code:</strong> {deviceUserCode}</div>
+                <div className="stat-sub">If your browser didn't open, go to <a href={deviceVerificationUri ?? '#'} target="_blank" rel="noreferrer">{deviceVerificationUri}</a> and enter the code above.</div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

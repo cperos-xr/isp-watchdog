@@ -414,6 +414,87 @@ pub fn save_pollinations_key(state: State<'_, AppState>, key: Option<String>) ->
     Ok(())
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct DeviceStart {
+    pub device_code: String,
+    pub user_code: String,
+    pub verification_uri: String,
+    pub verification_uri_complete: Option<String>,
+    pub expires_in: Option<i64>,
+    pub interval: Option<i64>,
+}
+
+#[tauri::command]
+pub async fn pollinations_device_start(
+    _state: State<'_, AppState>,
+    client_id: Option<String>,
+) -> Result<DeviceStart, String> {
+    let client = reqwest::Client::new();
+    let body = if let Some(cid) = client_id {
+        serde_json::json!({ "client_id": cid })
+    } else {
+        serde_json::json!({})
+    };
+
+    let resp = client
+        .post("https://enter.pollinations.ai/api/device/code")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let status = resp.status();
+    let text = resp.text().await.map_err(|e| e.to_string())?;
+    if !status.is_success() {
+        return Err(format!("Pollinations device start error: {} - {}", status, text));
+    }
+
+    let v: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+    let ds = DeviceStart {
+        device_code: v.get("device_code").and_then(|s| s.as_str()).unwrap_or_default().to_string(),
+        user_code: v.get("user_code").and_then(|s| s.as_str()).unwrap_or_default().to_string(),
+        verification_uri: v.get("verification_uri").and_then(|s| s.as_str()).unwrap_or_default().to_string(),
+        verification_uri_complete: v.get("verification_uri_complete").and_then(|s| s.as_str()).map(|s| s.to_string()),
+        expires_in: v.get("expires_in").and_then(|n| n.as_i64()),
+        interval: v.get("interval").and_then(|n| n.as_i64()),
+    };
+    Ok(ds)
+}
+
+#[tauri::command]
+pub async fn pollinations_device_token_poll(
+    _state: State<'_, AppState>,
+    device_code: String,
+) -> Result<Option<String>, String> {
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({ "device_code": device_code });
+
+    let resp = client
+        .post("https://enter.pollinations.ai/api/device/token")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let status = resp.status();
+    let text = resp.text().await.map_err(|e| e.to_string())?;
+    if !status.is_success() {
+        return Err(format!("Pollinations device poll error: {} - {}", status, text));
+    }
+
+    let v: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+    if let Some(tok) = v.get("access_token").and_then(|t| t.as_str()) {
+        return Ok(Some(tok.to_string()));
+    }
+    if let Some(err) = v.get("error").and_then(|e| e.as_str()) {
+        if err == "authorization_pending" || err == "slow_down" {
+            return Ok(None);
+        }
+        return Err(err.to_string());
+    }
+    Ok(None)
+}
+
 #[tauri::command]
 pub async fn pollinations_generate(
     state: State<'_, AppState>,

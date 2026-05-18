@@ -96,6 +96,8 @@ pub fn run() {
             commands::save_markdown_report,
             commands::get_pollinations_key,
             commands::save_pollinations_key,
+            commands::pollinations_device_start,
+            commands::pollinations_device_token_poll,
             commands::pollinations_generate,
         ])
         .run(tauri::generate_context!())
