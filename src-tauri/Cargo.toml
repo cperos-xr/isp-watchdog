@@ -1,6 +1,6 @@
 [package]
 name = "isp-watchdog"
-version = "0.1.0"
+version = "0.1.2"
 description = "Local-first ISP performance monitor and refund-case builder."
 authors = ["ISP Watchdog contributors"]
 edition = "2021"
