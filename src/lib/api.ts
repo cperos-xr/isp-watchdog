@@ -150,6 +150,15 @@ export interface PollinationsAccountSummary {
 
 export const DEFAULT_POLLINATIONS_MODEL = "gpt-5.4-mini";
 
+export interface PollinationsDeviceStart {
+  deviceCode: string;
+  userCode: string;
+  verificationUri: string;
+  verificationUriComplete?: string | null;
+  expiresIn?: number | null;
+  interval?: number | null;
+}
+
 type JsonObject = { [key: string]: JsonValue };
 
 function isJsonObject(value: JsonValue | null | undefined): value is JsonObject {
@@ -344,7 +353,7 @@ export const api = {
   pollinationsGenerate: (prompt: string, model?: string | null, short?: boolean) =>
     invoke<string>("pollinations_generate", { prompt, model, short }),
   pollinationsDeviceStart: (client_id?: string | null) =>
-    invoke<any>("pollinations_device_start", { client_id }),
+    invoke<PollinationsDeviceStart>("pollinations_device_start", { client_id }),
   pollinationsDevicePoll: (device_code: string) =>
-    invoke<any>("pollinations_device_token_poll", { device_code }),
+    invoke<string | null>("pollinations_device_token_poll", { device_code }),
 };

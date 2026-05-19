@@ -133,7 +133,7 @@ The saved file lands in your **Documents** folder as `isp-watchdog-YYYY-MM-DD.md
 
 ### Optional: Pollinations (bring your own Pollen)
 
-ISP Watchdog can call Pollinations to generate summaries or draft complaint letters directly from the app. To enable it, open **Settings → AI Integrations**, paste your Pollinations secret key (starts with `sk_...`) into the API key field, and click **Save key**.
+ISP Watchdog can call Pollinations to generate summaries or draft complaint letters directly from the app. To enable it, open **Settings → AI Integrations** and either sign in with Pollinations or paste your Pollinations secret key (starts with `sk_...`) into the API key field.
 
 Your Pollinations secret key must be obtained from https://enter.pollinations.ai. Use a secret `sk_...` key with model access and usage permissions so the app can query your balance and spending. ISP Watchdog reads authenticated endpoints such as `/account/key`, `/account/balance`, `/account/usage`, and `/account/usage/daily` to display remaining Pollen, recent usage, and estimated request cost.
 

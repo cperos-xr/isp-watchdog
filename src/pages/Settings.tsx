@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { enable, isEnabled, disable } from "@tauri-apps/plugin-autostart";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   api,
   DEFAULT_POLLINATIONS_MODEL,
@@ -8,6 +9,7 @@ import {
   type IspEntry,
   type Plan,
   type PollinationsAccountSnapshot,
+  type PollinationsDeviceStart,
   type Thresholds,
 } from "../lib/api";
 
@@ -40,6 +42,8 @@ export default function Settings() {
   const [pollinationsSnapshot, setPollinationsSnapshot] = useState<PollinationsAccountSnapshot | null>(null);
   const [pollinationsLoading, setPollinationsLoading] = useState(false);
   const [pollinationsError, setPollinationsError] = useState("");
+  const [pollinationsDevice, setPollinationsDevice] = useState<PollinationsDeviceStart | null>(null);
+  const [pollinationsDeviceChecking, setPollinationsDeviceChecking] = useState(false);
   const pollinationsSummary = summarizePollinationsAccount(pollinationsSnapshot);
 
   useEffect(() => {
@@ -157,6 +161,57 @@ export default function Settings() {
       setPollinationsError(String(error));
       console.error(error);
     }
+  }
+
+  async function startPollinationsDeviceLogin() {
+    setPollinationsError("");
+    setPollinationsDevice(null);
+    setPollinationsLoading(true);
+
+    try {
+      const device = await api.pollinationsDeviceStart();
+      setPollinationsDevice(device);
+      if (device.verificationUriComplete) {
+        await openUrl(device.verificationUriComplete);
+      } else {
+        await openUrl(device.verificationUri);
+      }
+    } catch (error) {
+      setPollinationsError(String(error));
+      console.error(error);
+    } finally {
+      setPollinationsLoading(false);
+    }
+  }
+
+  async function checkPollinationsDeviceToken() {
+    if (!pollinationsDevice) return;
+
+    setPollinationsError("");
+    setPollinationsDeviceChecking(true);
+
+    try {
+      const token = await api.pollinationsDevicePoll(pollinationsDevice.deviceCode);
+      if (token) {
+        await api.pollinationsSaveKey(token);
+        setPollinationsKey(token);
+        await refreshPollinationsAccount(token);
+        flash("Pollinations sign-in complete");
+        setPollinationsDevice(null);
+      } else {
+        setPollinationsError("Authorization is still pending. Confirm in your browser and try again.");
+      }
+    } catch (error) {
+      setPollinationsError(String(error));
+      console.error(error);
+    } finally {
+      setPollinationsDeviceChecking(false);
+    }
+  }
+
+  function cancelPollinationsDeviceLogin() {
+    setPollinationsDevice(null);
+    setPollinationsError("");
   }
 
   return (
@@ -346,6 +401,42 @@ export default function Settings() {
 
       <div className="card">
         <div className="card-title">AI Integrations</div>
+        <div className="stat-sub" style={{ marginBottom: 12 }}>
+          Use Pollinations BYOP to generate summaries, complaint drafts, and evidence narratives with your own pollen balance.
+        </div>
+        <div className="card" style={{ background: "#0c0f14", marginBottom: 12, padding: 12 }}>
+          <div className="card-title">Pollinations login</div>
+          <div className="stat-sub" style={{ marginBottom: 12 }}>
+            Start the device authorization flow and grab a scoped user key without pasting a secret key manually.
+          </div>
+          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            <button onClick={startPollinationsDeviceLogin} disabled={pollinationsLoading || !!pollinationsDevice}>
+              {pollinationsLoading ? "Preparing login…" : "Sign in with Pollinations"}
+            </button>
+            {pollinationsDevice && (
+              <>
+                <button className="secondary" onClick={checkPollinationsDeviceToken} disabled={pollinationsDeviceChecking}>
+                  {pollinationsDeviceChecking ? "Checking…" : "Check authorization"}
+                </button>
+                <button className="secondary" onClick={cancelPollinationsDeviceLogin}>
+                  Cancel
+                </button>
+              </>
+            )}
+          </div>
+          {pollinationsDevice && (
+            <div style={{ marginTop: 12 }}>
+              <div className="stat-sub">Open the browser page below and enter this code:</div>
+              <div className="stat" style={{ wordBreak: "break-all" }}>
+                {pollinationsDevice.userCode}
+              </div>
+              <div className="stat-sub" style={{ marginTop: 8 }}>
+                {pollinationsDevice.verificationUriComplete ?? pollinationsDevice.verificationUri}
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="grid">
           <div>
             <div style={{ display: "grid", gap: 10, maxWidth: 560 }}>
